@@ -105,7 +105,6 @@ client.on('guildMemberAdd', async (member) => {
             `Кто пригласил: ${inviter ? inviter.toString() : 'Неизвестно'}\n` +
             `Приглашений у него: **?**`
         )
-        .setThumbnail('https://cdn.discordapp.com/attachments/1532035417774362745/1542800472891723826/content.png?ex=6a928c68&is=6a913ae8&hm=02ce7876adad5133d5b9a6f028d7bced1968fdcfdbdf7b364d24d9f535a0a9d7')
         .setTimestamp();
 
     channel.send({ content: `${member}`, embeds: [embed] });
