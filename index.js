@@ -23,19 +23,18 @@ const DATA_FILE = __dirname + '/data.json';
 let userData = {};
 let reminders = [];
 let warnings = {};
-let verifyRoleId = null;
+const VERIFY_ROLE_NAME_ENV = process.env.VERIFY_ROLE || 'Участник';
 
 if (fs.existsSync(DATA_FILE)) {
     const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     userData = saved.userData || {};
     reminders = saved.reminders || [];
     warnings = saved.warnings || {};
-    verifyRoleId = saved.verifyRoleId || null;
 }
 
 function saveData() {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, verifyRoleId }, null, 2));
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings }, null, 2));
     } catch (e) {}
 }
 
@@ -46,10 +45,8 @@ function addXP(userID, xp) {
     if (userData[userID].xp >= needed) {
         userData[userID].level++;
         userData[userID].xp -= needed;
-        saveData();
         return true;
     }
-    saveData();
     return false;
 }
 
@@ -138,7 +135,6 @@ client.on('messageCreate', async (message) => {
                 await message.delete().catch(() => {});
                 const w = (warnings[message.author.id] || 0) + 1;
                 warnings[message.author.id] = w;
-                saveData();
                 if (w >= 3) {
                     await message.member.timeout(10 * 60 * 1000, 'Мат (авто-модерация)');
                     message.channel.send(`🔇 ${message.author} замьючен на 10 мин за мат (3 предупреждения)`);
@@ -569,9 +565,7 @@ client.on('messageCreate', async (message) => {
         if (!roleName) return message.reply('❌ Использование: `!role <название роли>`');
         const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
         if (!role) return message.reply(`❌ Роль **${roleName}** не найдена!`);
-        verifyRoleId = role.id;
-        saveData();
-        message.reply(`✅ Роль верификации: **${role.name}**`);
+        message.reply(`✅ Роль верификации: **${role.name}**\nУстанови переменную \`VERIFY_ROLE\` в Railway: **${role.name}**`);
     }
 
     // === МУЗЫКА ===
@@ -809,12 +803,9 @@ client.on('interactionCreate', async (interaction) => {
     // Верификация - кнопка
     if (interaction.isButton()) {
         if (interaction.customId === 'verify_button') {
-            if (!verifyRoleId) {
-                return interaction.reply({ content: '❌ Роль верификации не установлена! Админ должен написать `!role <название>`', ephemeral: true });
-            }
-            const role = interaction.guild.roles.cache.get(verifyRoleId);
+            const role = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
             if (!role) {
-                return interaction.reply({ content: '❌ Роль не найдена! Попроси админа.', ephemeral: true });
+                return interaction.reply({ content: `❌ Роль **${VERIFY_ROLE_NAME_ENV}** не найдена!`, ephemeral: true });
             }
 
             if (interaction.member.roles.cache.has(role.id)) {
