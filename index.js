@@ -814,8 +814,49 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: '✅ Ты уже верифицирован!', ephemeral: true });
             }
 
-            await interaction.member.roles.add(role);
-            await interaction.reply({ content: `✅ Добро пожаловать! Тебе выдана роль **${role.name}**.`, ephemeral: true });
+            const a = Math.floor(Math.random() * 20) + 1;
+            const b = Math.floor(Math.random() * 20) + 1;
+            const correct = a + b;
+            const wrong1 = correct + Math.floor(Math.random() * 5) + 1;
+            const wrong2 = correct - Math.floor(Math.random() * 5) - 1;
+            const answers = [correct, wrong1, wrong2].sort(() => Math.random() - 0.5);
+
+            const row = new ActionRowBuilder();
+            for (const ans of answers) {
+                row.addComponents(
+                    new ButtonBuilder()
+                        .setCustomId(`verify_captcha_${ans}`)
+                        .setLabel(`${ans}`)
+                        .setStyle(ans === correct ? ButtonStyle.Success : ButtonStyle.Secondary)
+                );
+            }
+
+            const captchaEmbed = new EmbedBuilder()
+                .setColor(0xFFD700)
+                .setTitle('🔐 Проверка')
+                .setDescription(`Реши пример чтобы подтвердить что ты не бот:\n\n**${a} + ${b} = ?**`)
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [captchaEmbed], components: [row], ephemeral: true });
+        }
+
+        if (interaction.customId.startsWith('verify_captcha_')) {
+            const answer = parseInt(interaction.customId.split('_')[2]);
+            const role = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
+            if (!role) {
+                return interaction.reply({ content: `❌ Роль не найдена!`, ephemeral: true });
+            }
+
+            if (interaction.member.roles.cache.has(role.id)) {
+                return interaction.reply({ content: '✅ Ты уже верифицирован!', ephemeral: true });
+            }
+
+            if (answer !== undefined) {
+                await interaction.member.roles.add(role);
+                await interaction.reply({ content: `✅ Правильно! Добро пожаловать! Тебе выдана роль **${role.name}**.`, ephemeral: true });
+            } else {
+                await interaction.reply({ content: '❌ Неправильно! Попробуй снова.', ephemeral: true });
+            }
         }
     }
 });
