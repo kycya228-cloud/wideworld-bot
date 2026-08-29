@@ -23,14 +23,16 @@ const DATA_FILE = __dirname + '/data.json';
 let userData = {};
 let reminders = [];
 let warnings = {};
-const VERIFY_ROLE_NAME_ENV = process.env.VERIFY_ROLE || 'Участник';
+const VERIFY_ROLE_NAME_ENV = 'верификация';
 
-if (fs.existsSync(DATA_FILE)) {
-    const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    userData = saved.userData || {};
-    reminders = saved.reminders || [];
-    warnings = saved.warnings || {};
-}
+try {
+    if (fs.existsSync(DATA_FILE)) {
+        const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+        userData = saved.userData || {};
+        reminders = saved.reminders || [];
+        warnings = saved.warnings || {};
+    }
+} catch (e) {}
 
 function saveData() {
     try {
