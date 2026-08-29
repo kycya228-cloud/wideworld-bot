@@ -1,7 +1,8 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const { Client, GatewayIntentBits, EmbedBuilder, PermissionFlagsBits, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle, ChannelType } = require('discord.js');
 const voice = require('@discordjs/voice');
 const play = require('play-dl');
+const fs = require('fs');
 
 const client = new Client({
     intents: [
@@ -16,10 +17,67 @@ const client = new Client({
 const PREFIX = '!';
 const TICKET_CATEGORY_NAME = 'ТИКЕТЫ';
 const VERIFY_ROLE_NAME = 'Участник';
+const BANNED_WORDS = ['хуй', 'пизда', 'блять', 'блядь', 'сука', 'нахуй', 'ебать', 'ёб', 'еба', 'пидор', 'гей', 'фашист', 'нацист'];
+const DATA_FILE = __dirname + '/data.json';
+
+let userData = {};
+let reminders = [];
+let warnings = {};
+
+if (fs.existsSync(DATA_FILE)) {
+    const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    userData = saved.userData || {};
+    reminders = saved.reminders || [];
+    warnings = saved.warnings || {};
+}
+
+function saveData() {
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings }, null, 2));
+}
+
+function addXP(userID, xp) {
+    if (!userData[userID]) userData[userID] = { xp: 0, level: 1 };
+    userData[userID].xp += xp;
+    const needed = userData[userID].level * 100;
+    if (userData[userID].xp >= needed) {
+        userData[userID].level++;
+        userData[userID].xp -= needed;
+        saveData();
+        return true;
+    }
+    saveData();
+    return false;
+}
+
+function getLevel(userID) {
+    if (!userData[userID]) return { xp: 0, level: 1 };
+    return userData[userID];
+}
 
 client.once('ready', () => {
     console.log(`✅ Бот ${client.user.tag} запущен!`);
     client.user.setActivity('!help | By vipgegeHAHAHA');
+
+    // Проверка напоминаний каждую минуту
+    setInterval(async () => {
+        const now = Date.now();
+        const due = reminders.filter(r => r.time <= now);
+        for (const r of due) {
+            try {
+                const channel = await client.channels.fetch(r.channelID);
+                if (channel) {
+                    const embed = new EmbedBuilder()
+                        .setColor(0xFFAA00)
+                        .setTitle('🔔 Напоминание!')
+                        .setDescription(`<@${r.userID}>: ${r.text}`)
+                        .setTimestamp();
+                    channel.send({ embeds: [embed] });
+                }
+            } catch (e) {}
+        }
+        reminders = reminders.filter(r => r.time > now);
+        if (due.length > 0) saveData();
+    }, 60000);
 });
 
 // Приветствие нового участника
@@ -72,6 +130,48 @@ client.on('guildMemberRemove', async (member) => {
 
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
+
+    // XP за сообщение
+    if (message.guild) {
+        const leveledUp = addXP(message.author.id, Math.floor(Math.random() * 10) + 5);
+        if (leveledUp) {
+            const lvl = getLevel(message.author.id);
+            const embed = new EmbedBuilder()
+                .setColor(0xFFD700)
+                .setTitle('⬆️ Новый уровень!')
+                .setDescription(`${message.author}, ты достиг уровня **${lvl.level}**!`);
+            message.channel.send({ embeds: [embed] }).then(msg => setTimeout(() => msg.delete(), 5000));
+        }
+    }
+
+    // Авто-модерация
+    if (message.guild && !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        const lower = message.content.toLowerCase();
+        for (const word of BANNED_WORDS) {
+            if (lower.includes(word)) {
+                await message.delete().catch(() => {});
+                const w = (warnings[message.author.id] || 0) + 1;
+                warnings[message.author.id] = w;
+                saveData();
+                if (w >= 3) {
+                    await message.member.timeout(10 * 60 * 1000, 'Мат (авто-модерация)');
+                    message.channel.send(`🔇 ${message.author} замьючен на 10 мин за мат (3 предупреждения)`);
+                } else {
+                    message.channel.send(`⚠️ ${message.author}, мат запрещён! Предупреждение **${w}/3**`).then(msg => setTimeout(() => msg.delete(), 5000));
+                }
+                return;
+            }
+        }
+
+        if (message.content.includes('http://') || message.content.includes('https://')) {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                await message.delete().catch(() => {});
+                message.channel.send(`🔗 ${message.author}, ссылки запрещены!`).then(msg => setTimeout(() => msg.delete(), 5000));
+                return;
+            }
+        }
+    }
+
     if (!message.content.startsWith(PREFIX)) return;
 
     const args = message.content.slice(PREFIX.length).trim().split(/ +/);
@@ -326,18 +426,109 @@ client.on('messageCreate', async (message) => {
     if (command === 'help' || command === 'помощь') {
         const embed = new EmbedBuilder()
             .setColor(0x0099FF)
-            .setTitle('📖 Команды By vipgegeHAHAHA')
+            .setTitle('📖 Команды бота')
             .addFields(
                 { name: '📌 Основные', value: '`!ping` `!hello` `!help` `!приветствие`', inline: false },
                 { name: '📌 Полезные', value: '`!say` `!embed` `!avatar` `!userinfo`', inline: false },
                 { name: '📌 Модерация', value: '`!clear` `!kick` `!ban` `!mute` `!unmute`', inline: false },
                 { name: '📌 Музыка', value: '`!join` `!play <ссылка>` `!stop` `!leave`', inline: false },
-                { name: '📌 Развлечения', value: '`!meme` `!8ball` `!coinflip`', inline: false },
-                { name: '📌 Инфо', value: '`!server`', inline: false },
+                { name: '📌 Развлечения', value: '`!meme` `!8ball` `!coinflip` `!poll <вопрос>`', inline: false },
+                { name: '📌 Уровни', value: '`!rank` `!leaderboard`', inline: false },
+                { name: '📌 Напоминания', value: '`!remind <минуты> <текст>`', inline: false },
+                { name: '📌 Статистика', value: '`!server` `!stats`', inline: false },
                 { name: '📌 Тикеты', value: '`!ticket` (админ) `!close` (тикет)', inline: false },
                 { name: '📌 Верификация', value: '`!verify` (админ)', inline: false }
             )
             .setFooter({ text: 'By vipgegeHAHAHA' })
+            .setTimestamp();
+        message.reply({ embeds: [embed] });
+    }
+
+    // === УРОВНИ ===
+
+    if (command === 'rank') {
+        const user = message.mentions.users.first() || message.author;
+        const lvl = getLevel(user.id);
+        const needed = lvl.level * 100;
+        const bar = '█'.repeat(Math.floor(lvl.xp / needed * 10)) + '░'.repeat(10 - Math.floor(lvl.xp / needed * 10));
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700)
+            .setTitle(`📊 Ранг ${user.tag}`)
+            .addFields(
+                { name: 'Уровень', value: `${lvl.level}`, inline: true },
+                { name: 'XP', value: `${lvl.xp}/${needed}`, inline: true },
+                { name: 'Прогресс', value: bar, inline: false }
+            );
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'leaderboard' || command === 'топ') {
+        const sorted = Object.entries(userData)
+            .sort(([, a], [, b]) => (b.level * 100 + b.xp) - (a.level * 100 + a.xp))
+            .slice(0, 10);
+        let text = '';
+        sorted.forEach(([id, data], i) => {
+            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+            text += `${medal} <@${id}> — Ур. **${data.level}** (${data.xp} XP)\n`;
+        });
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700)
+            .setTitle('🏆 Топ-10 участников')
+            .setDescription(text || 'Пока нет данных');
+        message.reply({ embeds: [embed] });
+    }
+
+    // === ОПРОСЫ ===
+
+    if (command === 'poll') {
+        const question = args.join(' ');
+        if (!question) return message.reply('❌ Использование: `!poll <вопрос>`');
+        const embed = new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setTitle('📊 Опрос')
+            .setDescription(question)
+            .setFooter({ text: `Опрос от ${message.author.tag}` })
+            .setTimestamp();
+        const msg = await message.channel.send({ embeds: [embed] });
+        await msg.react('👍');
+        await msg.react('👎');
+        message.delete().catch(() => {});
+    }
+
+    // === НАПОМИНАНИЯ ===
+
+    if (command === 'remind' || command === 'напомни') {
+        const minutes = parseInt(args[0]);
+        const text = args.slice(1).join(' ');
+        if (!minutes || !text) return message.reply('❌ Использование: `!remind <минуты> <текст>`');
+        reminders.push({
+            userID: message.author.id,
+            channelID: message.channel.id,
+            text: text,
+            time: Date.now() + minutes * 60 * 1000
+        });
+        saveData();
+        message.reply(`✅ Напомню через **${minutes}** мин: ${text}`);
+    }
+
+    // === СТАТИСТИКА ===
+
+    if (command === 'stats') {
+        const online = message.guild.members.cache.filter(m => m.presence?.status === 'online').size;
+        const bots = message.guild.members.cache.filter(m => m.user.bot).size;
+        const textChannels = message.guild.channels.cache.filter(c => c.type === 0).size;
+        const voiceChannels = message.guild.channels.cache.filter(c => c.type === 2).size;
+        const embed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle(`📊 Статистика ${message.guild.name}`)
+            .addFields(
+                { name: '👥 Всего участников', value: `${message.guild.memberCount}`, inline: true },
+                { name: '🟢 Онлайн', value: `${online}`, inline: true },
+                { name: '🤖 Ботов', value: `${bots}`, inline: true },
+                { name: '💬 Текстовых каналов', value: `${textChannels}`, inline: true },
+                { name: '🔊 Голосовых каналов', value: `${voiceChannels}`, inline: true },
+                { name: '📅 Создан', value: `<t:${Math.floor(message.guild.createdTimestamp / 1000)}:R>`, inline: true }
+            )
             .setTimestamp();
         message.reply({ embeds: [embed] });
     }
