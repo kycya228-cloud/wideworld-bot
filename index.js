@@ -432,7 +432,7 @@ client.on('messageCreate', async (message) => {
                 { name: '📌 Полезные', value: '`!say` `!embed` `!avatar` `!userinfo`', inline: false },
                 { name: '📌 Модерация', value: '`!clear` `!kick` `!ban` `!mute` `!unmute`', inline: false },
                 { name: '📌 Музыка', value: '`!join` `!play <ссылка>` `!stop` `!leave`', inline: false },
-                { name: '📌 Развлечения', value: '`!meme` `!8ball` `!coinflip` `!poll <вопрос>`', inline: false },
+                { name: '📌 Развлечения', value: '`!meme` `!8ball` `!coinflip` `!poll <вопрос>` `!spam <кол-во> <текст>`', inline: false },
                 { name: '📌 Уровни', value: '`!rank` `!leaderboard`', inline: false },
                 { name: '📌 Напоминания', value: '`!remind <минуты> <текст>`', inline: false },
                 { name: '📌 Статистика', value: '`!server` `!stats`', inline: false },
@@ -442,6 +442,22 @@ client.on('messageCreate', async (message) => {
             .setFooter({ text: 'By vipgegeHAHAHA' })
             .setTimestamp();
         message.reply({ embeds: [embed] });
+    }
+
+    // === СПАМ ===
+
+    if (command === 'spam') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        const count = parseInt(args[0]);
+        const text = args.slice(1).join(' ');
+        if (!count || !text) return message.reply('❌ Использование: `!spam <кол-во> <текст>`');
+        if (count > 20) return message.reply('❌ Максимум 20 раз!');
+        message.delete().catch(() => {});
+        for (let i = 0; i < count; i++) {
+            message.channel.send(text);
+        }
     }
 
     // === УРОВНИ ===
