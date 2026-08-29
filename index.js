@@ -694,13 +694,10 @@ client.on('messageCreate', async (message) => {
             .setDescription(
                 `🛠 **Центр поддержки ${message.guild.name}**\n\n` +
                 `**Нужна помощь? Создайте тикет.**\n\n` +
-                `Через этот раздел можно обратиться по любым рабочим вопросам:\n\n` +
-                `• Проблемы с покупкой и доступом\n` +
-                `• Технические ошибки и баги\n` +
-                `• Предложения по улучшению проекта\n` +
-                `• Сотрудничество и партнёрские вопросы\n\n` +
-                `Пожалуйста, сразу описывайте ситуацию подробно и без флуда.\n\n` +
-                `Выберите причину обращения ниже.`
+                `Выберите причину обращения:\n\n` +
+                `❓ **Помощь по серверу** — вопросы по серверу, правилам, функционалу\n` +
+                `🐛 **Баги и ошибки** — нашёл баг? сообщи нам\n` +
+                `🎭 **Выдача ролей** — запрос на получение роли`
             );
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -708,34 +705,22 @@ client.on('messageCreate', async (message) => {
             .setPlaceholder('Выберите причину обращения')
             .addOptions(
                 {
-                    label: 'Покупка и доступ',
-                    description: 'Проблемы с покупкой и доступом',
-                    value: 'purchase',
-                    emoji: '🛒'
+                    label: 'Помощь по серверу',
+                    description: 'Вопросы по серверу и правилам',
+                    value: 'server_help',
+                    emoji: '❓'
                 },
                 {
-                    label: 'Технические ошибки',
-                    description: 'Баги и технические проблемы',
-                    value: 'technical',
-                    emoji: '🔧'
+                    label: 'Баги и ошибки',
+                    description: 'Сообщить о баге или ошибке',
+                    value: 'bugs',
+                    emoji: '🐛'
                 },
                 {
-                    label: 'Предложения',
-                    description: 'Предложения по улучшению',
-                    value: 'suggestion',
-                    emoji: '💡'
-                },
-                {
-                    label: 'Сотрудничество',
-                    description: 'Партнёрские вопросы',
-                    value: 'partnership',
-                    emoji: '🤝'
-                },
-                {
-                    label: 'Другое',
-                    description: 'Другие вопросы',
-                    value: 'other',
-                    emoji: '📩'
+                    label: 'Выдача ролей',
+                    description: 'Запрос на получение роли',
+                    value: 'role',
+                    emoji: '🎭'
                 }
             );
 
@@ -762,11 +747,9 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isStringSelectMenu()) {
         if (interaction.customId === 'ticket_select') {
             const reasons = {
-                purchase: '🛒 Покупка и доступ',
-                technical: '🔧 Технические ошибки',
-                suggestion: '💡 Предложения',
-                partnership: '🤝 Сотрудничество',
-                other: '📩 Другое'
+                server_help: '❓ Помощь по серверу',
+                bugs: '🐛 Баги и ошибки',
+                role: '🎭 Выдача ролей'
             };
 
             const reason = reasons[interaction.values[0]] || '📩 Другое';
