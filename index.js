@@ -23,16 +23,18 @@ const DATA_FILE = __dirname + '/data.json';
 let userData = {};
 let reminders = [];
 let warnings = {};
+let verifyRoleId = null;
 
 if (fs.existsSync(DATA_FILE)) {
     const saved = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
     userData = saved.userData || {};
     reminders = saved.reminders || [];
     warnings = saved.warnings || {};
+    verifyRoleId = saved.verifyRoleId || null;
 }
 
 function saveData() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings }, null, 2));
+    fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, verifyRoleId }, null, 2));
 }
 
 function addXP(userID, xp) {
@@ -556,6 +558,20 @@ client.on('messageCreate', async (message) => {
         message.delete().catch(() => {});
     }
 
+    // Установить роль верификации
+    if (command === 'role') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        const roleName = args.join(' ');
+        if (!roleName) return message.reply('❌ Использование: `!role <название роли>`');
+        const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+        if (!role) return message.reply(`❌ Роль **${roleName}** не найдена!`);
+        verifyRoleId = role.id;
+        saveData();
+        message.reply(`✅ Роль верификации: **${role.name}**`);
+    }
+
     // === МУЗЫКА ===
 
     if (command === 'join') {
@@ -791,9 +807,12 @@ client.on('interactionCreate', async (interaction) => {
     // Верификация - кнопка
     if (interaction.isButton()) {
         if (interaction.customId === 'verify_button') {
-            const role = interaction.guild.roles.cache.find(r => r.name === VERIFY_ROLE_NAME);
+            if (!verifyRoleId) {
+                return interaction.reply({ content: '❌ Роль верификации не установлена! Админ должен написать `!role <название>`', ephemeral: true });
+            }
+            const role = interaction.guild.roles.cache.get(verifyRoleId);
             if (!role) {
-                return interaction.reply({ content: '❌ Роль не найдена! Попроси админа создать роль `Участник`.', ephemeral: true });
+                return interaction.reply({ content: '❌ Роль не найдена! Попроси админа.', ephemeral: true });
             }
 
             if (interaction.member.roles.cache.has(role.id)) {
