@@ -80,54 +80,6 @@ client.once('ready', () => {
     }, 60000);
 });
 
-// Приветствие нового участника
-client.on('guildMemberAdd', async (member) => {
-    let channel = member.guild.systemChannel;
-    if (!channel) {
-        channel = member.guild.channels.cache.find(ch => ch.isTextBased() && ch.permissionsFor(member.guild.members.me).has('SendMessages'));
-    }
-    if (!channel) return;
-
-    const inviter = await member.guild.invites.fetch().then(invites => {
-        const invite = invites.find(i => i.uses > 0 && i.inviter && i.inviter.id !== member.id);
-        return invite ? invite.inviter : null;
-    }).catch(() => null);
-
-    const embed = new EmbedBuilder()
-        .setColor(0xFFD700)
-        .setDescription(
-            `**Приветствую тебя ${member} ты попал на дискорд сервер лучшей копии**\n\n` +
-            `ReallyWorld **WideWorld**\n\n` +
-            `Наш айпи: **mc.wideworld.pw**\n` +
-            `Наш сайт: **wideworld.pw**\n\n` +
-            `👤 ты уже участник **${member.guild.memberCount}-й**\n\n` +
-            `Спасибо что зашел к нам!\n` +
-            `Кто пригласил: ${inviter ? inviter.toString() : 'Неизвестно'}\n` +
-            `Приглашений у него: **?**`
-        )
-        .setThumbnail('https://cdn.discordapp.com/attachments/1532035417774362745/1542800472891723826/content.png?ex=6a928c68&is=6a913ae8&hm=02ce7876adad5133d5b9a6f028d7bced1968fdcfdbdf7b364d24d9f535a0a9d7')
-        .setTimestamp();
-
-    channel.send({ content: `${member}`, embeds: [embed] });
-});
-
-// Прощание
-client.on('guildMemberRemove', async (member) => {
-    let channel = member.guild.systemChannel;
-    if (!channel) {
-        channel = member.guild.channels.cache.find(ch => ch.isTextBased() && ch.permissionsFor(member.guild.members.me).has('SendMessages'));
-    }
-    if (!channel) return;
-
-    const embed = new EmbedBuilder()
-        .setColor(0xFF0000)
-        .setTitle('😢 Участник вышел')
-        .setDescription(`**${member.user.tag}** покинул сервер.`)
-        .setTimestamp();
-
-    channel.send({ embeds: [embed] });
-});
-
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
 
