@@ -34,7 +34,9 @@ if (fs.existsSync(DATA_FILE)) {
 }
 
 function saveData() {
-    fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, verifyRoleId }, null, 2));
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, verifyRoleId }, null, 2));
+    } catch (e) {}
 }
 
 function addXP(userID, xp) {
