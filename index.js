@@ -570,6 +570,25 @@ client.on('messageCreate', async (message) => {
         message.reply(`✅ Роль верификации: **${role.name}**\nУстанови переменную \`VERIFY_ROLE\` в Railway: **${role.name}**`);
     }
 
+    // Выдать роль всем
+    if (command === 'role2') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
+        if (!role) return message.reply(`❌ Роль **${VERIFY_ROLE_NAME_ENV}** не найдена!`);
+        const msg = await message.reply(`🔄 Выдаю роль **${role.name}** участникам...`);
+        let count = 0;
+        const members = await message.guild.members.fetch();
+        for (const [, member] of members) {
+            if (!member.user.bot && !member.roles.cache.has(role.id)) {
+                await member.roles.add(role).catch(() => {});
+                count++;
+            }
+        }
+        msg.edit(`✅ Роль **${role.name}** выдана **${count}** участникам!`);
+    }
+
     // === МУЗЫКА ===
 
     if (command === 'join') {
