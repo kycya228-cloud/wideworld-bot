@@ -575,8 +575,10 @@ client.on('messageCreate', async (message) => {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
             return message.reply('❌ Только администраторы!');
         }
-        const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
-        if (!role) return message.reply(`❌ Роль **${VERIFY_ROLE_NAME_ENV}** не найдена!`);
+        const roleName = args.join(' ');
+        if (!roleName) return message.reply('❌ Использование: `!role2 <название роли>`');
+        const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+        if (!role) return message.reply(`❌ Роль **${roleName}** не найдена!`);
         const msg = await message.reply(`🔄 Выдаю роль **${role.name}** участникам...`);
         let count = 0;
         const members = await message.guild.members.fetch();
