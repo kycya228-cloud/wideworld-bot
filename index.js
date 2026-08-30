@@ -16,14 +16,14 @@ const client = new Client({
 
 const PREFIX = '!';
 const TICKET_CATEGORY_NAME = 'ТИКЕТЫ';
-const VERIFY_ROLE_NAME = 'Участник';
+const VERIFY_ROLE_NAME = 'Игрок';
 const BANNED_WORDS = ['хуй', 'пизда', 'блять', 'блядь', 'сука', 'нахуй', 'ебать', 'ёб', 'еба', 'пидор', 'гей', 'фашист', 'нацист'];
 const DATA_FILE = __dirname + '/data.json';
 
 let userData = {};
 let reminders = [];
 let warnings = {};
-let VERIFY_ROLE_NAME_ENV = 'верификация';
+let VERIFY_ROLE_NAME_ENV = 'Игрок';
 const captchaAnswers = new Map();
 let reactionRoles = {};
 
