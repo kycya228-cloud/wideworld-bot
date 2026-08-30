@@ -435,6 +435,30 @@ client.on('messageCreate', async (message) => {
         message.reply({ embeds: [embed] });
     }
 
+    if (command === 'реклама' || command === 'clan' || command === 'клан') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        // !реклама <ссылка> [название клана] — если без ссылки, шлёт пример как на скрине
+        const invite = args[0] && args[0].startsWith('http') ? args.shift() : 'https://discord.gg/wideworld';
+        const clanName = args.join(' ') || 'CLAN/НЕБО';
+        const embed = new EmbedBuilder()
+            .setColor(0x5865F2)
+            .setTitle(`🤝 ${clanName} 🔍`)
+            .setDescription(
+                `👋 Ку ребятки давно искали хороший клан без софтов? Тогда вам к нам новый клан **${clanName}** 🔍\n` +
+                `Данный клан состоит из разных версий, онлайна мало но мы надеемся на вас, всем удачи\n\n` +
+                `**Ссылка на сервер**\n` +
+                `[Присоединиться](${invite})`
+            )
+            .setFooter({ text: 'MinionVisuals - лучшие визуалы', iconURL: message.guild.iconURL() })
+            .setTimestamp();
+        // синяя полоска слева как на скрине — через setColor
+        await message.channel.send({ embeds: [embed] });
+        message.delete().catch(() => {});
+        return;
+    }
+
     if (command === 'help' || command === 'помощь') {
         const embed = new EmbedBuilder()
             .setColor(0x0099FF)
@@ -451,7 +475,8 @@ client.on('messageCreate', async (message) => {
                 { name: '📌 Тикеты', value: '`!ticket` (админ) `!close` (тикет)', inline: false },
                 { name: '📌 Верификация', value: '`!verify` (админ)', inline: false },
                 { name: '📌 Роли', value: '`!role2 <роль>` `!выдатьвсем <роль>` `!role <роль>` (админ)', inline: false },
-                { name: '📌 Приветствие', value: '`!welcome #канал` `!welcome off` (админ)', inline: false }
+                { name: '📌 Приветствие', value: '`!welcome #канал` `!welcome off` (админ)', inline: false },
+                { name: '📌 Реклама', value: '`!реклама [ссылка] [название]` `!clan` (админ)', inline: false }
             )
             .setFooter({ text: 'By vipgegeHAHAHA' })
             .setTimestamp();
