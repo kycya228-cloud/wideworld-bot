@@ -23,6 +23,8 @@ const DATA_FILE = __dirname + '/data.json';
 let userData = {};
 let reminders = [];
 let warnings = {};
+let coins = {};
+let welcomeChannelId = null;
 let VERIFY_ROLE_NAME_ENV = 'Игрок';
 const captchaAnswers = new Map();
 let reactionRoles = {};
@@ -34,12 +36,14 @@ try {
         reminders = saved.reminders || [];
         warnings = saved.warnings || {};
         reactionRoles = saved.reactionRoles || {};
+        coins = saved.coins || {};
+        welcomeChannelId = saved.welcomeChannelId || null;
     }
 } catch (e) {}
 
 function saveData() {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, reactionRoles }, null, 2));
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, reactionRoles, coins, welcomeChannelId }, null, 2));
     } catch (e) {}
 }
 
@@ -88,9 +92,16 @@ client.once('ready', () => {
 
 // Приветствие
 client.on('guildMemberAdd', async (member) => {
-    let channel = member.guild.systemChannel;
-    if (!channel) {
-        channel = member.guild.channels.cache.find(ch => ch.isTextBased() && ch.permissionsFor(member.guild.members.me).has('SendMessages'));
+    if (welcomeChannelId === 'off') return;
+    let channel = null;
+    if (welcomeChannelId) {
+        channel = member.guild.channels.cache.get(welcomeChannelId);
+        if (!channel) return;
+    } else {
+        channel = member.guild.systemChannel;
+        if (!channel) {
+            channel = member.guild.channels.cache.find(ch => ch.isTextBased() && ch.permissionsFor(member.guild.members.me).has('SendMessages'));
+        }
     }
     if (!channel) return;
 
@@ -439,7 +450,8 @@ client.on('messageCreate', async (message) => {
                 { name: '📌 Статистика', value: '`!server` `!stats` `!дата` `!ктоя`', inline: false },
                 { name: '📌 Тикеты', value: '`!ticket` (админ) `!close` (тикет)', inline: false },
                 { name: '📌 Верификация', value: '`!verify` (админ)', inline: false },
-                { name: '📌 Роли', value: '`!role2 <роль>` `!выдатьвсем <роль>` `!role <роль>` (админ)', inline: false }
+                { name: '📌 Роли', value: '`!role2 <роль>` `!выдатьвсем <роль>` `!role <роль>` (админ)', inline: false },
+                { name: '📌 Приветствие', value: '`!welcome #канал` `!welcome off` (админ)', inline: false }
             )
             .setFooter({ text: 'By vipgegeHAHAHA' })
             .setTimestamp();
@@ -638,6 +650,28 @@ client.on('messageCreate', async (message) => {
         message.delete().catch(() => {});
     }
 
+    // Настройка приветствия
+    if (command === 'welcome' || command === 'приветствие') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        const arg = args[0];
+        if (!arg) {
+            const cur = welcomeChannelId === 'off' ? 'выключено' : welcomeChannelId ? `<#${welcomeChannelId}>` : 'авто (системный канал)';
+            return message.reply(`📌 Текущий канал приветствия: ${cur}\nИспользование: \`!welcome #канал\` или \`!welcome off\``);
+        }
+        if (arg.toLowerCase() === 'off' || arg.toLowerCase() === 'выкл') {
+            welcomeChannelId = 'off';
+            saveData();
+            return message.reply('✅ Приветствие **выключено**.');
+        }
+        const channel = message.mentions.channels.first();
+        if (!channel) return message.reply('❌ Укажи канал: `!welcome #канал` или `!welcome off`');
+        welcomeChannelId = channel.id;
+        saveData();
+        message.reply(`✅ Канал приветствия установлен: ${channel}`);
+    }
+
     // Установить роль верификации
     if (command === 'role') {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -697,6 +731,168 @@ client.on('messageCreate', async (message) => {
             }
         }
         msg.edit(`✅ Роль **${role.name}** выдана **${count}** участникам!`);
+    }
+
+    // === ЭКОНОМИКА ===
+
+    if (command === 'daily' || command === 'ежедневно') {
+        const uid = message.author.id;
+        if (!coins[uid]) coins[uid] = { amount: 0, daily: 0 };
+        const now = Date.now();
+        if (coins[uid].daily && now - coins[uid].daily < 24 * 60 * 60 * 1000) {
+            const next = coins[uid].daily + 24 * 60 * 60 * 1000;
+            const diff = next - now;
+            const hours = Math.floor(diff / 3600000);
+            const mins = Math.floor((diff % 3600000) / 60000);
+            return message.reply(`⏰ Подожди ещё **${hours}ч ${mins}м** до следующей ежедневки!`);
+        }
+        const reward = Math.floor(Math.random() * 500) + 100;
+        coins[uid].amount += reward;
+        coins[uid].daily = now;
+        saveData();
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700)
+            .setTitle('💰 Ежедневная награда!')
+            .setDescription(`Ты получил **${reward}** коинов!\nБаланс: **${coins[uid].amount}** коинов`);
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'balance' || command === 'bal' || command === 'баланс') {
+        const user = message.mentions.users.first() || message.author;
+        const uid = user.id;
+        if (!coins[uid]) coins[uid] = { amount: 0, daily: 0 };
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700)
+            .setTitle(`💰 Баланс ${user.username}`)
+            .setDescription(`**${coins[uid].amount}** коинов`);
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'transfer' || command === 'pay' || command === 'передать') {
+        const target = message.mentions.users.first();
+        if (!target) return message.reply('❌ Использование: `!transfer @пользователь <сумма>`');
+        if (target.id === message.author.id) return message.reply('❌ Нельзя переводить себе!');
+        if (target.bot) return message.reply('❌ Нельзя переводить ботам!');
+        const amount = parseInt(args[1]);
+        if (!amount || amount <= 0) return message.reply('❌ Укажи сумму!');
+        const uid = message.author.id;
+        if (!coins[uid]) coins[uid] = { amount: 0, daily: 0 };
+        if (coins[uid].amount < amount) return message.reply(`❌ Недостаточно коинов! У тебя **${coins[uid].amount}**`);
+        if (!coins[target.id]) coins[target.id] = { amount: 0, daily: 0 };
+        coins[uid].amount -= amount;
+        coins[target.id].amount += amount;
+        saveData();
+        message.reply(`✅ Ты перевёл **${amount}** коинов ${target}`);
+    }
+
+    if (command === 'slot' || command === 'слоты') {
+        const uid = message.author.id;
+        if (!coins[uid]) coins[uid] = { amount: 0, daily: 0 };
+        const bet = parseInt(args[0]) || 100;
+        if (bet <= 0) return message.reply('❌ Ставка должна быть больше 0!');
+        if (coins[uid].amount < bet) return message.reply(`❌ Недостаточно! Нужно **${bet}**, у тебя **${coins[uid].amount}**`);
+        const symbols = ['🍒', '🍋', '🍊', '🍇', '🍉', '💎', '7️⃣'];
+        const s1 = symbols[Math.floor(Math.random() * symbols.length)];
+        const s2 = symbols[Math.floor(Math.random() * symbols.length)];
+        const s3 = symbols[Math.floor(Math.random() * symbols.length)];
+        let win = 0;
+        if (s1 === s2 && s2 === s3) win = bet * 5;
+        else if (s1 === s2 || s2 === s3 || s1 === s3) win = bet * 2;
+        coins[uid].amount += win - bet;
+        saveData();
+        const embed = new EmbedBuilder()
+            .setColor(win > 0 ? 0x00FF00 : 0xFF0000)
+            .setTitle('🎰 Слот-машина')
+            .setDescription(`[ ${s1} | ${s2} | ${s3} ]\n\n${win > 0 ? `🏆 Выигрыш: **${win}** коинов!` : `😔 Проигрыш: **-${bet}** коинов`}\nБаланс: **${coins[uid].amount}**`);
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'rob' || command === 'ограбить') {
+        const target = message.mentions.users.first();
+        if (!target) return message.reply('❌ Использование: `!rob @пользователь`');
+        if (target.id === message.author.id) return message.reply('❌ Нельзя грабить себя!');
+        if (target.bot) return message.reply('❌ Нельзя грабить ботов!');
+        const uid = message.author.id;
+        if (!coins[uid]) coins[uid] = { amount: 0, daily: 0 };
+        if (!coins[target.id]) coins[target.id] = { amount: 0, daily: 0 };
+        if (coins[target.id].amount < 50) return message.reply('❌ У жертвы мало коинов!');
+        const chance = Math.random();
+        if (chance < 0.5) {
+            const stolen = Math.floor(Math.random() * Math.min(coins[target.id].amount, 500)) + 50;
+            coins[uid].amount += stolen;
+            coins[target.id].amount -= stolen;
+            saveData();
+            message.reply(`💰 Ты成功 ограбил ${target} и украл **${stolen}** коинов!`);
+        } else {
+            const fine = Math.floor(Math.random() * 200) + 50;
+            coins[uid].amount -= fine;
+            saveData();
+            message.reply(`🚔 Ты попался! Штраф **${fine}** коинов. Баланс: **${coins[uid].amount}**`);
+        }
+    }
+
+    // === ИГРЫ ===
+
+    if (command === 'trivia' || command === 'викторина') {
+        const questions = [
+            { q: 'Какая столица Франции?', a: ['париж', 'paris'] },
+            { q: 'Сколько планет в Солнечной системе?', a: ['8', 'восемь'] },
+            { q: 'Кто написал "Войну и мир"?', a: ['толстой', 'лев толстой', 'leo tolstoy'] },
+            { q: 'Какой газ мы вдыхаем?', a: ['кислород', 'o2'] },
+            { q: 'Какая самая большая планета?', a: ['юпитер', 'jupiter'] },
+            { q: 'Сколько дней в високосном году?', a: ['366', 'триста шестьдесят шесть'] },
+            { q: 'Какой язык программирования создан в 1995?', a: ['javascript', 'java script'] },
+            { q: 'Как называется валюта Японии?', a: ['йена', 'иена', 'yen', 'jpy'] },
+            { q: 'Кто изобрёл лампочку?', a: ['эдисон', 'тесла', 'edison'] },
+            { q: 'Какой океан самый большой?', a: ['тихий', 'pacific'] },
+        ];
+        const q = questions[Math.floor(Math.random() * questions.length)];
+        const embed = new EmbedBuilder()
+            .setColor(0xFF6600)
+            .setTitle('🧠 Викторина')
+            .setDescription(`**${q.q}**\n\nНапиши ответ в чат! У тебя 15 секунд.`)
+            .setFooter({ text: 'Ответ в чат' });
+        await message.reply({ embeds: [embed] });
+        const filter = m => m.author.id === message.author.id;
+        try {
+            const collected = await message.channel.awaitMessages({ filter, max: 1, time: 15000, errors: ['time'] });
+            const answer = collected.first().content.toLowerCase().trim();
+            if (q.a.includes(answer)) {
+                const reward = Math.floor(Math.random() * 200) + 100;
+                const uid = message.author.id;
+                if (!coins[uid]) coins[uid] = { amount: 0, daily: 0 };
+                coins[uid].amount += reward;
+                saveData();
+                message.reply(`✅ Правильно! Ты получил **${reward}** коинов!`);
+            } else {
+                message.reply(`❌ Неправильно! Правильный ответ: **${q.a[0]}**`);
+            }
+        } catch {
+            message.reply(`⏰ Время вышло! Правильный ответ: **${q.a[0]}**`);
+        }
+    }
+
+    if (command === 'ship' || command === 'совместимость') {
+        const user1 = message.author;
+        const user2 = message.mentions.users.first();
+        if (!user2) return message.reply('❌ Использование: `!ship @пользователь`');
+        if (user2.id === user1.id) return message.reply('❌ Нельзя проверять себя с собой!');
+        const percent = Math.floor(Math.random() * 101);
+        let hearts = '';
+        for (let i = 0; i < 10; i++) {
+            hearts += i < Math.floor(percent / 10) ? '❤️' : '🖤';
+        }
+        let text = '';
+        if (percent >= 90) text = '💘 Идеальная пара!';
+        else if (percent >= 70) text = '💕 Отличная совместимость!';
+        else if (percent >= 50) text = '💜 Неплохо!';
+        else if (percent >= 30) text = '💔 Маловато...';
+        else text = '💀 Не судьба...';
+        const embed = new EmbedBuilder()
+            .setColor(0xFF69B4)
+            .setTitle('💘 Совместимость')
+            .setDescription(`${user1} + ${user2}\n\n${hearts}\n\n**${percent}%**\n${text}`);
+        message.reply({ embeds: [embed] });
     }
 
     // === РАЗВЛЕЧЕНИЯ (дополнительные) ===
