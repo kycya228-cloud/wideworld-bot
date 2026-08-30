@@ -23,7 +23,9 @@ const DATA_FILE = __dirname + '/data.json';
 let userData = {};
 let reminders = [];
 let warnings = {};
-const VERIFY_ROLE_NAME_ENV = 'верификация';
+let VERIFY_ROLE_NAME_ENV = 'верификация';
+const captchaAnswers = new Map();
+let reactionRoles = {};
 
 try {
     if (fs.existsSync(DATA_FILE)) {
@@ -31,12 +33,13 @@ try {
         userData = saved.userData || {};
         reminders = saved.reminders || [];
         warnings = saved.warnings || {};
+        reactionRoles = saved.reactionRoles || {};
     }
 } catch (e) {}
 
 function saveData() {
     try {
-        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings }, null, 2));
+        fs.writeFileSync(DATA_FILE, JSON.stringify({ userData, reminders, warnings, reactionRoles }, null, 2));
     } catch (e) {}
 }
 
@@ -97,20 +100,48 @@ client.on('guildMemberAdd', async (member) => {
     }).catch(() => null);
 
     const embed = new EmbedBuilder()
-        .setColor(0xFFD700)
+        .setColor(0x2F3136)
+        .setTitle('✦ Добро пожаловать на WideWorld ✦')
         .setDescription(
-            `**Приветствую тебя ${member} ты попал на дискорд сервер лучшей копии**\n\n` +
-            `ReallyWorld **WideWorld**\n\n` +
-            `Наш айпи: **mc.wideworld.pw**\n` +
-            `Наш сайт: **wideworld.pw**\n\n` +
-            `👤 ты уже участник **${member.guild.memberCount}-й**\n\n` +
-            `Спасибо что зашел к нам!\n` +
-            `Кто пригласил: ${inviter ? inviter.toString() : 'Неизвестно'}\n` +
-            `Приглашений у него: **?**`
+            `╔══════════════════════════════╗\n\n` +
+            `👋 Добро пожаловать, ${member}\n\n` +
+            `Ты попал на сервер **лучшей копии** Minecraft\n\n` +
+            `╚══════════════════════════════╝\n\n` +
+            `🌐 **Наш сайт:** [wideworld.pw](https://wideworld.pw)\n` +
+            `🎮 **IP сервера:** \`mc.wideworld.pw\`\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `📌 Что тебя ждёт:\n` +
+            `> 🔹 Уникальный геймплей\n` +
+            `> 🔹 Дружелюбное комьюнити\n` +
+            `> 🔹 Ивенты и турниры\n` +
+            `> 🔹 Справедливая модерация\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `👤 Ты **${member.guild.memberCount}-й** участник\n` +
+            `${inviter ? `🔗 Пригласил: ${inviter}` : '🔗 Пригласитель: Неизвестно'}\n\n` +
+            `━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+            `*Не забудь пройти верификацию в канале #верификация*`
         )
+        .setThumbnail(member.user.displayAvatarURL({ size: 256 }))
+        .setImage('https://cdn.discordapp.com/attachments/1532035417774362745/1542800472891723826/content.png?ex=6a928c68&is=6a913ae8&hm=02ce7876adad5133d5b9a6f028d7bced1968fdcfdbdf7b364d24d9f535a0a9d7')
+        .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: member.guild.iconURL() })
         .setTimestamp();
 
     channel.send({ content: `${member}`, embeds: [embed] });
+});
+
+// Защита роли верификации — нельзя снять
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    const role = newMember.guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
+    if (!role) return;
+    const hadRole = oldMember.roles.cache.has(role.id);
+    const hasRole = newMember.roles.cache.has(role.id);
+    if (hadRole && !hasRole) {
+        await newMember.roles.add(role).catch(() => {});
+        const logChannel = newMember.guild.channels.cache.find(ch => ch.name === 'логи' || ch.name === 'logs');
+        if (logChannel) {
+            logChannel.send(`🔒 Роль **${role.name}** была снята с ${newMember}, но вернута обратно!`).catch(() => {});
+        }
+    }
 });
 
 client.on('messageCreate', async (message) => {
@@ -129,8 +160,8 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Авто-модерация
-    if (message.guild && !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    // Авто-модерация (только для не-команд)
+    if (message.guild && !message.member.permissions.has(PermissionFlagsBits.Administrator) && !message.content.startsWith(PREFIX)) {
         const lower = message.content.toLowerCase();
         for (const word of BANNED_WORDS) {
             if (lower.includes(word)) {
@@ -168,21 +199,7 @@ client.on('messageCreate', async (message) => {
         sent.edit(`🏓 Pong! Задержка: ${sent.createdTimestamp - message.createdTimestamp}ms | API: ${client.ws.ping}ms`);
     }
 
-    if (command === 'приветствие' || command === 'welcome') {
-        const embed = new EmbedBuilder()
-            .setColor(0xFFD700)
-            .setDescription(
-                `**Приветствую тебя ${message.author} ты попал на дискорд сервер лучшей копии**\n\n` +
-                `ReallyWorld **WideWorld**\n\n` +
-                `Наш айпи: **mc.wideworld.pw**\n` +
-                `Наш сайт: **wideworld.pw**\n\n` +
-                `👤 ты уже участник **${message.guild.memberCount}-й**\n\n` +
-                `Спасибо что зашел к нам!`
-            )
-            .setThumbnail('https://cdn.discordapp.com/attachments/1532035417774362745/1542800472891723826/content.png?ex=6a928c68&is=6a913ae8&hm=02ce7876adad5133d5b9a6f028d7bced1968fdcfdbdf7b364d24d9f535a0a9d7')
-            .setTimestamp();
-        message.reply({ embeds: [embed] });
-    }
+
 
     if (command === 'hello' || command === 'привет') {
         const embed = new EmbedBuilder()
@@ -412,16 +429,17 @@ client.on('messageCreate', async (message) => {
             .setColor(0x0099FF)
             .setTitle('📖 Команды бота')
             .addFields(
-                { name: '📌 Основные', value: '`!ping` `!hello` `!help` `!приветствие`', inline: false },
+                { name: '📌 Основные', value: '`!ping` `!hello` `!help`', inline: false },
                 { name: '📌 Полезные', value: '`!say` `!embed` `!avatar` `!userinfo`', inline: false },
                 { name: '📌 Модерация', value: '`!clear` `!kick` `!ban` `!mute` `!unmute`', inline: false },
                 { name: '📌 Музыка', value: '`!join` `!play <ссылка>` `!stop` `!leave`', inline: false },
-                { name: '📌 Развлечения', value: '`!meme` `!8ball` `!coinflip` `!poll <вопрос>` `!spam <кол-во> <текст>`', inline: false },
+                { name: '📌 Развлечения', value: '`!meme` `!8ball` `!coinflip` `!poll <вопрос>` `!spam <кол-во> <текст>` `!анекдот` `!шар <вопрос>`', inline: false },
                 { name: '📌 Уровни', value: '`!rank` `!leaderboard`', inline: false },
                 { name: '📌 Напоминания', value: '`!remind <минуты> <текст>`', inline: false },
-                { name: '📌 Статистика', value: '`!server` `!stats`', inline: false },
+                { name: '📌 Статистика', value: '`!server` `!stats` `!дата` `!ктоя`', inline: false },
                 { name: '📌 Тикеты', value: '`!ticket` (админ) `!close` (тикет)', inline: false },
-                { name: '📌 Верификация', value: '`!verify` (админ)', inline: false }
+                { name: '📌 Верификация', value: '`!verify` (админ)', inline: false },
+                { name: '📌 Роли', value: '`!role2 <роль>` `!выдатьвсем <роль>` `!role <роль>` (админ)', inline: false }
             )
             .setFooter({ text: 'By vipgegeHAHAHA' })
             .setTimestamp();
@@ -441,6 +459,68 @@ client.on('messageCreate', async (message) => {
         message.delete().catch(() => {});
         for (let i = 0; i < count; i++) {
             message.channel.send(text);
+        }
+    }
+
+    // === РОЛИ ПО РЕАКЦИЯМ ===
+
+    if (command === 'roles') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        if (!args[0]) {
+            return message.reply('❌ Использование: `!roles <канал> эмодзи1 @роль1, эмодзи2 @роль2`\nПример: `!roles #роли 🎮 @Игровая, 🎵 @Музыка`');
+        }
+        const channel = message.mentions.channels.first();
+        if (!channel) return message.reply('❌ Укажи канал!');
+        const rolePairs = args.slice(1).join(' ').split(',').map(s => s.trim()).filter(s => s);
+        if (rolePairs.length === 0) return message.reply('❌ Укажи пары эмодзи + роль!');
+
+        let description = '**Выбери роль нажав на эмодзи:**\n\n';
+        const reactions = [];
+        const mapping = {};
+
+        for (const pair of rolePairs) {
+            const parts = pair.split(/\s+/);
+            if (parts.length < 2) continue;
+            const emoji = parts[0];
+            const roleName = parts.slice(1).join(' ').replace(/[@<>!&]/g, '');
+            const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+            if (!role) continue;
+            description += `${emoji} — ${role}\n`;
+            reactions.push(emoji);
+            mapping[emoji] = role.id;
+        }
+
+        if (reactions.length === 0) return message.reply('❌ Не нашёл роли! Проверь названия.');
+
+        const embed = new EmbedBuilder()
+            .setColor(0x2F3136)
+            .setDescription(description)
+            .setFooter({ text: 'Нажми на эмодзи чтобы получить роль' })
+            .setTimestamp();
+
+        const msg = await channel.send({ embeds: [embed] });
+        for (const emoji of reactions) {
+            await msg.react(emoji).catch(() => {});
+        }
+        reactionRoles[msg.id] = mapping;
+        saveData();
+        message.reply(`✅ Панель ролей создана в ${channel}`);
+    }
+
+    if (command === 'roleremove' || command === 'rr') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        const msgId = args[0];
+        if (!msgId) return message.reply('❌ Укажи ID сообщения!');
+        if (reactionRoles[msgId]) {
+            delete reactionRoles[msgId];
+            saveData();
+            message.reply('✅ Роль-панель удалена!');
+        } else {
+            message.reply('❌ Не нашёл такую панель!');
         }
     }
 
@@ -564,10 +644,14 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ Только администраторы!');
         }
         const roleName = args.join(' ');
-        if (!roleName) return message.reply('❌ Использование: `!role <название роли>`');
-        const role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+        if (!roleName) return message.reply(`❌ Текущая роль верификации: **${VERIFY_ROLE_NAME_ENV}**\nИспользование: \`!role <название или @упоминание>\``);
+        let role = message.mentions.roles.first();
+        if (!role) {
+            role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+        }
         if (!role) return message.reply(`❌ Роль **${roleName}** не найдена!`);
-        message.reply(`✅ Роль верификации: **${role.name}**\nУстанови переменную \`VERIFY_ROLE\` в Railway: **${role.name}**`);
+        VERIFY_ROLE_NAME_ENV = role.name;
+        message.reply(`✅ Роль верификации установлена: **${role.name}**`);
     }
 
     // Выдать роль всем
@@ -589,6 +673,105 @@ client.on('messageCreate', async (message) => {
             }
         }
         msg.edit(`✅ Роль **${role.name}** выдана **${count}** участникам!`);
+    }
+
+    // Выдать роль всем (алиас)
+    if (command === 'выдатьвсем' || command === 'giveall') {
+        if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return message.reply('❌ Только администраторы!');
+        }
+        const roleName = args.join(' ');
+        if (!roleName) return message.reply('❌ Использование: `!выдатьвсем <название роли>`');
+        let role = message.mentions.roles.first();
+        if (!role) {
+            role = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+        }
+        if (!role) return message.reply(`❌ Роль **${roleName}** не найдена!`);
+        const msg = await message.reply(`🔄 Выдаю роль **${role.name}** участникам...`);
+        let count = 0;
+        const members = await message.guild.members.fetch();
+        for (const [, member] of members) {
+            if (!member.user.bot && !member.roles.cache.has(role.id)) {
+                await member.roles.add(role).catch(() => {});
+                count++;
+            }
+        }
+        msg.edit(`✅ Роль **${role.name}** выдана **${count}** участникам!`);
+    }
+
+    // === РАЗВЛЕЧЕНИЯ (дополнительные) ===
+
+    if (command === 'анекдот' || command === 'joke') {
+        const jokes = [
+            '— Почему программист путает Хеллоуин и Рождество? — Потому что Oct 31 = Dec 25.',
+            '— Что сказал 0 числу 8? — Классный пояс!',
+            '— Как программист проверяетidelity? — Он не проверяет, он доверяет.',
+            '— Почему у программиста всегда холодные ноги? — Потому что он сидит в Windows.',
+            '— Что делает программист на отдыхе? — Отдыхает от программиста.',
+            '— Как назвать программиста без女朋友? — Соло кодер.',
+            '— Почему Java-разработчики путают Рождество и Хеллоуин? — Потому что Oct 31 == Dec 25.',
+            '— Как программист убивает время? — Он оптимизирует его.',
+            '— Что сказал один баг другому? — Мы family!',
+            '— Почему программист ходил к врачу? — У него были проблемы с backbone.',
+            '— Как программист_notes в ресторане? — Он оставляет commit в меню.',
+            '— Что делает код, когда ему холодно? — Он компилируется в warmer.',
+        ];
+        const joke = jokes[Math.floor(Math.random() * jokes.length)];
+        const embed = new EmbedBuilder()
+            .setColor(0xFFD700)
+            .setTitle('😂 Анекдот')
+            .setDescription(joke);
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'дата' || command === 'date') {
+        const now = new Date();
+        const embed = new EmbedBuilder()
+            .setColor(0x0099FF)
+            .setTitle('📅 Текущая дата и время')
+            .setDescription(
+                `**Дата:** ${now.toLocaleDateString('ru-RU')}\n` +
+                `**Время:** ${now.toLocaleTimeString('ru-RU')}\n` +
+                `**День недели:** ${now.toLocaleDateString('ru-RU', { weekday: 'long' })}`
+            );
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'ктоя' || command === 'whoami') {
+        const user = message.author;
+        const member = message.member;
+        const embed = new EmbedBuilder()
+            .setColor(0x00FF00)
+            .setTitle('👤 Информация о тебе')
+            .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: 'Имя', value: user.tag, inline: true },
+                { name: 'ID', value: user.id, inline: true },
+                { name: 'Создан', value: `<t:${Math.floor(user.createdTimestamp / 1000)}:R>`, inline: true },
+                { name: 'Зашёл на сервер', value: `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>`, inline: true },
+                { name: 'Роли', value: member.roles.cache.map(r => r.toString()).join(' '), inline: false }
+            );
+        message.reply({ embeds: [embed] });
+    }
+
+    if (command === 'шар' || command === 'ball') {
+        const question = args.join(' ');
+        if (!question) return message.reply('❌ Использование: `!шар <вопрос>`');
+        const answers = [
+            '✅ Да!', '❌ Нет!', '🤔 Возможно...', '🎭 Спроси позже',
+            '💯 Точно да!', '🚫 Точно нет!', '😴 Может быть...', '🎯 Скорее да',
+            '⚠️ Не уверен', '🎲 Попробуй снова', '💀 Нет и не будет!',
+            '🙌 Конечно!', '🫡 Так и есть', '🤡 Ты шутишь?'
+        ];
+        const answer = answers[Math.floor(Math.random() * answers.length)];
+        const embed = new EmbedBuilder()
+            .setColor(0x7B2FBE)
+            .setTitle('🔮 Шар судьбы')
+            .addFields(
+                { name: 'Вопрос', value: question },
+                { name: 'Ответ', value: answer }
+            );
+        message.reply({ embeds: [embed] });
     }
 
     // === МУЗЫКА ===
@@ -714,7 +897,9 @@ client.on('messageCreate', async (message) => {
                 `Выберите причину обращения:\n\n` +
                 `❓ **Помощь по серверу** — вопросы по серверу, правилам, функционалу\n` +
                 `🐛 **Баги и ошибки** — нашёл баг? сообщи нам\n` +
-                `🎭 **Выдача ролей** — запрос на получение роли`
+                `🎭 **Выдача ролей** — запрос на получение роли\n` +
+                `🔧 **Тех поддержка** — проблемы с игрой, модами, подключением\n` +
+                `🤝 **Партнерство** — предложение о сотрудничестве`
             );
 
         const selectMenu = new StringSelectMenuBuilder()
@@ -738,6 +923,18 @@ client.on('messageCreate', async (message) => {
                     description: 'Запрос на получение роли',
                     value: 'role',
                     emoji: '🎭'
+                },
+                {
+                    label: 'Тех поддержка',
+                    description: 'Проблемы с игрой, модами, подключением',
+                    value: 'tech',
+                    emoji: '🔧'
+                },
+                {
+                    label: 'Партнерство',
+                    description: 'Предложение о сотрудничестве',
+                    value: 'partner',
+                    emoji: '🤝'
                 }
             );
 
@@ -766,7 +963,9 @@ client.on('interactionCreate', async (interaction) => {
             const reasons = {
                 server_help: '❓ Помощь по серверу',
                 bugs: '🐛 Баги и ошибки',
-                role: '🎭 Выдача ролей'
+                role: '🎭 Выдача ролей',
+                tech: '🔧 Тех поддержка',
+                partner: '🤝 Партнерство'
             };
 
             const reason = reasons[interaction.values[0]] || '📩 Другое';
@@ -835,11 +1034,12 @@ client.on('interactionCreate', async (interaction) => {
                 return interaction.reply({ content: '✅ Ты уже верифицирован!', ephemeral: true });
             }
 
-            const a = Math.floor(Math.random() * 20) + 1;
-            const b = Math.floor(Math.random() * 20) + 1;
+            const a = Math.floor(Math.random() * 30) + 1;
+            const b = Math.floor(Math.random() * 30) + 1;
             const correct = a + b;
             const wrong1 = correct + Math.floor(Math.random() * 5) + 1;
-            const wrong2 = correct - Math.floor(Math.random() * 5) - 1;
+            let wrong2 = correct - Math.floor(Math.random() * 5) - 1;
+            if (wrong2 < 0) wrong2 = 0;
             const answers = [correct, wrong1, wrong2].sort(() => Math.random() - 0.5);
 
             const row = new ActionRowBuilder();
@@ -848,7 +1048,7 @@ client.on('interactionCreate', async (interaction) => {
                     new ButtonBuilder()
                         .setCustomId(`verify_captcha_${ans}`)
                         .setLabel(`${ans}`)
-                        .setStyle(ans === correct ? ButtonStyle.Success : ButtonStyle.Secondary)
+                        .setStyle(ButtonStyle.Secondary)
                 );
             }
 
@@ -880,6 +1080,58 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
     }
+});
+
+// Обработка ответа капчи в ЛС
+client.on('messageCreate', async (message) => {
+    if (message.author.bot) return;
+    if (message.guild) return;
+    const userId = message.author.id;
+    if (!captchaAnswers.has(userId)) return;
+    const correct = captchaAnswers.get(userId);
+    const userAnswer = parseInt(message.content.trim());
+    if (isNaN(userAnswer)) return;
+    captchaAnswers.delete(userId);
+    if (userAnswer === correct) {
+        const guild = client.guilds.cache.first();
+        if (!guild) return;
+        const member = await guild.members.fetch(userId).catch(() => null);
+        if (!member) return;
+        const role = guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
+        if (!role) return;
+        await member.roles.add(role);
+        await message.reply(`✅ Правильно! Тебе выдана роль **${role.name}**.`);
+    } else {
+        await message.reply(`❌ Неправильно! Правильный ответ: **${correct}**. Попробуй снова.`);
+    }
+});
+
+// Роли по реакциям — выдать
+client.on('messageReactionAdd', async (reaction, user) => {
+    if (user.bot) return;
+    if (!reactionRoles[reaction.message.id]) return;
+    const roleId = reactionRoles[reaction.message.id][reaction.emoji.name];
+    if (!roleId) return;
+    const guild = reaction.message.guild;
+    const member = await guild.members.fetch(user.id).catch(() => null);
+    if (!member) return;
+    const role = guild.roles.cache.get(roleId);
+    if (!role) return;
+    await member.roles.add(role).catch(() => {});
+});
+
+// Роли по реакциям — снять
+client.on('messageReactionRemove', async (reaction, user) => {
+    if (user.bot) return;
+    if (!reactionRoles[reaction.message.id]) return;
+    const roleId = reactionRoles[reaction.message.id][reaction.emoji.name];
+    if (!roleId) return;
+    const guild = reaction.message.guild;
+    const member = await guild.members.fetch(user.id).catch(() => null);
+    if (!member) return;
+    const role = guild.roles.cache.get(roleId);
+    if (!role) return;
+    await member.roles.remove(role).catch(() => {});
 });
 
 client.login(process.env.TOKEN);
