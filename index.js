@@ -451,10 +451,12 @@ client.on('messageCreate', async (message) => {
                 `**Ссылка на сервер**\n` +
                 `[Присоединиться](${invite})`
             )
-            .setFooter({ text: 'MinionVisuals - лучшие визуалы', iconURL: message.guild.iconURL() })
+            .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: message.guild.iconURL() })
             .setTimestamp();
         // синяя полоска слева как на скрине — через setColor
         await message.channel.send({ embeds: [embed] });
+        // отдельно кидаем инвайт чтобы дискорд отрисовал карточку как на скрине (зеленая кнопка Перейти на сервер)
+        if (invite.startsWith('http')) await message.channel.send(invite).catch(() => {});
         message.delete().catch(() => {});
         return;
     }
