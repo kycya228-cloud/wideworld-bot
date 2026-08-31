@@ -24,7 +24,7 @@ let userData = {};
 let reminders = [];
 let warnings = {};
 let coins = {};
-let welcomeChannelId = null;
+let welcomeChannelId = 'off';
 let VERIFY_ROLE_NAME_ENV = 'Игрок';
 const captchaAnswers = new Map();
 let reactionRoles = {};
@@ -37,7 +37,7 @@ try {
         warnings = saved.warnings || {};
         reactionRoles = saved.reactionRoles || {};
         coins = saved.coins || {};
-        welcomeChannelId = saved.welcomeChannelId || null;
+        welcomeChannelId = saved.welcomeChannelId ?? 'off';
     }
 } catch (e) {}
 
