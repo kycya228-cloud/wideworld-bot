@@ -658,22 +658,44 @@ client.on('messageCreate', async (message) => {
             return message.reply('❌ Только администраторы!');
         }
 
+        const banner = new EmbedBuilder()
+            .setImage('https://cdn.discordapp.com/attachments/1532035417774362745/1542800472891723826/content.png?ex=6a928c68&is=6a913ae8&hm=02ce7876adad5133d5b9a6f028d7bced1968fdcfdbdf7b364d24d9f535a0a9d7')
+            .setColor(0x2F3136);
+
         const embed = new EmbedBuilder()
             .setColor(0x2F3136)
+            .setTitle('🔐 Верификация')
             .setDescription(
-                `🔐 **Верификация**\n\n` +
-                `Нажми кнопку ниже чтобы получить доступ к серверу.\n` +
-                `После верификации тебе станет доступен весь сервер.`
-            );
+                `**Добро пожаловать на WideWorld**\n\n` +
+                `Ты в одном нажатии от полного доступа к серверу.\n` +
+                `Верификация — простая формальность: она отсекает ботов\n` +
+                `и рекламные аккаунты, чтобы в чатах было спокойно.\n\n` +
+                `Жми **«Пройти верификацию»** — каналы откроются сразу.`
+            )
+            .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: message.guild.iconURL() })
+            .setTimestamp();
+
+        const rulesEmbed = new EmbedBuilder()
+            .setColor(0x2F3136)
+            .setTitle('📋 Что дальше')
+            .setDescription(
+                `1. Прочитай правила сервера — там всё, что стоит знать\n` +
+                `2. Загляни в уведомления и новости\n` +
+                `3. Заходи на mc.wideworld.pw и общайся — остальные каналы уже открыты\n\n` +
+                `😊 **Кнопка не сработала?**\n` +
+                `Кнопка не отвечает или доступ не открылся — напиши в личные сообщения\n` +
+                `любому из администрации, пропустим вручную.`
+            )
+            .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: message.guild.iconURL() });
 
         const button = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('verify_button')
-                .setLabel('✅ Верифицироваться')
+                .setLabel('🔒 Пройти верификацию')
                 .setStyle(ButtonStyle.Success)
         );
 
-        await message.channel.send({ embeds: [embed], components: [button] });
+        await message.channel.send({ embeds: [banner, embed, rulesEmbed], components: [button] });
         message.delete().catch(() => {});
     }
 
@@ -1254,7 +1276,12 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             if (interaction.member.roles.cache.has(role.id)) {
-                return interaction.reply({ content: '✅ Ты уже верифицирован!', ephemeral: true });
+                const alreadyEmbed = new EmbedBuilder()
+                    .setColor(0x2F3136)
+                    .setTitle('✅ Всё уже готово')
+                    .setDescription('Верификация уже пройдена — доступ открыт. Приятного общения!')
+                    .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: interaction.guild.iconURL() });
+                return interaction.reply({ embeds: [alreadyEmbed], ephemeral: true });
             }
 
             const a = Math.floor(Math.random() * 30) + 1;
@@ -1288,16 +1315,26 @@ client.on('interactionCreate', async (interaction) => {
             const answer = parseInt(interaction.customId.split('_')[2]);
             const role = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === VERIFY_ROLE_NAME_ENV.toLowerCase());
             if (!role) {
-                return interaction.reply({ content: `❌ Роль не найдена!`, ephemeral: true });
+                return interaction.reply({ content: '❌ Роль не найдена! Создай роль **Игрок** в настройках сервера.', ephemeral: true });
             }
 
             if (interaction.member.roles.cache.has(role.id)) {
-                return interaction.reply({ content: '✅ Ты уже верифицирован!', ephemeral: true });
+                const alreadyEmbed = new EmbedBuilder()
+                    .setColor(0x2F3136)
+                    .setTitle('✅ Всё уже готово')
+                    .setDescription('Верификация уже пройдена — доступ открыт. Приятного общения!')
+                    .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: interaction.guild.iconURL() });
+                return interaction.reply({ embeds: [alreadyEmbed], ephemeral: true });
             }
 
             if (answer !== undefined) {
                 await interaction.member.roles.add(role);
-                await interaction.reply({ content: `✅ Правильно! Добро пожаловать! Тебе выдана роль **${role.name}**.`, ephemeral: true });
+                const successEmbed = new EmbedBuilder()
+                    .setColor(0x2F3136)
+                    .setTitle('✅ Верификация пройдена')
+                    .setDescription('Добро пожаловать на WideWorld! Каналы открыты, приятного общения!')
+                    .setFooter({ text: 'WideWorld • mc.wideworld.pw', iconURL: interaction.guild.iconURL() });
+                await interaction.reply({ embeds: [successEmbed], ephemeral: true });
             } else {
                 await interaction.reply({ content: '❌ Неправильно! Попробуй снова.', ephemeral: true });
             }
